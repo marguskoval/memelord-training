@@ -1,0 +1,34 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: grafana-margus
+spec:
+  secretName: grafana-margus-tls
+  dnsNames:
+    - grafana-margus.ee-lte-1.codemowers.io
+  issuerRef:
+    name: letsencrypt
+    kind: ClusterIssuer
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: grafana-margus.ee-lte-1.codemowers.io
+      http:
+        paths:
+          - pathType: Prefix
+            path: "/"
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 3000
+  tls:
+    - secretName: grafana-margus-tls

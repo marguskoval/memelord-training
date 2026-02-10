@@ -1,0 +1,21 @@
+---
+apiVersion: codemowers.cloud/v1beta1
+kind: OIDCClient
+metadata:
+  name: grafana-margus
+spec:
+  displayName: Grafana Margus
+  uri: https://grafana-margus.ee-lte-1.codemowers.io/
+  redirectUris:
+    - https://grafana-margus.ee-lte-1.codemowers.io/login/generic_oauth
+    - https://grafana-margus.ee-lte-1.codemowers.io/
+    - https://grafana-margus.ee-lte-1.codemowers.io/login/generic_oauth/
+  grantTypes:
+    - authorization_code
+    - refresh_token
+  responseTypes:
+    - code
+  availableScopes:
+    - openid
+    - profile
+  pkce: false
