@@ -1,0 +1,33 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: memelord-marguskoval-database
+spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:17
+  storage:
+    size: 1Gi
+    storageClass: postgres
+  affinity:
+    podAntiAffinityType: required
+    nodeSelector:
+      codemowers.io/lvm-ubuntu-vg: enterprise-ssd
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "1Gi"
+    limits:
+      cpu: "1"
+      memory: "4Gi"
+  postgresql:
+    parameters:
+      max_connections: "300"
+      shared_buffers: "512MB"
+      effective_cache_size: "2GB"
+  managed:
+    roles:
+    - name: memelord-marguskoval
+      ensure: present
+      login: true
+      passwordSecret:
+        name: memelord-marguskoval-database

@@ -1,0 +1,25 @@
+apiVersion: s3.onyxia.sh/v1alpha1
+kind: Policy
+metadata:
+  name: memelord-marguskoval-policy
+spec:
+  name: memelord-marguskoval-policy
+  s3InstanceRef: minio/default
+  policyContent: >-
+    {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": [
+            "s3:ListBucket",
+            "s3:GetObject",
+            "s3:PutObject"
+          ],
+          "Resource": [
+            "arn:aws:s3:::memelord-marguskoval",
+            "arn:aws:s3:::memelord-marguskoval/*"
+          ]
+        }
+      ]
+    }

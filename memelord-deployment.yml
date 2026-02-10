@@ -1,0 +1,202 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: memelord-settings-override
+  namespace: memelord-margus
+data:
+  settings_override.py: |
+    # Import base settings
+    from myproject.settings import *
+    
+    # Override S3 Configuration for MinIO path-style addressing
+    AWS_S3_ADDRESSING_STYLE = 'path'
+    AWS_S3_SIGNATURE_VERSION = 's3v4'
+    
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: memelord
+  namespace: memelord-margus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: memelord
+  template:
+    metadata:
+      labels:
+        app: memelord
+    spec:
+      securityContext:
+        runAsUser: 33
+        runAsGroup: 33
+        fsGroup: 33
+      containers:
+      - name: memelord
+        image: ghcr.io/l4rm4nd/memelord:latest
+        securityContext:
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+        volumeMounts:
+        - name: logs
+          mountPath: /opt/app/logs
+        - name: tmp
+          mountPath: /tmp
+        - name: settings-override
+          mountPath: /opt/app/myproject/settings_override.py
+          subPath: settings_override.py
+        ports:
+        - containerPort: 8000
+        env:
+        - name: DJANGO_SETTINGS_MODULE
+          value: "myproject.settings_override"
+        - name: DEBUG
+          value: "False"
+        - name: DJANGO_LOG_LEVEL
+          value: "INFO"
+        - name: DOMAIN
+          value: "localhost,memelord-marguskoval.k8s.chil.ee"
+        - name: SECURE_COOKIES
+          value: "True"
+        - name: SESSION_COOKIE_AGE
+          value: "30"
+        - name: SESSION_EXPIRE_AT_BROWSER_CLOSE
+          value: "False"
+        - name: TZ
+          value: "Europe/Berlin"
+        - name: ENABLE_PUBLIC_FEED
+          value: "False"
+        - name: MAX_UPLOAD_SIZE_MB
+          value: "10"
+        
+        # OIDC Configuration
+        - name: OIDC_ENABLED
+          value: "True"
+        - name: OIDC_AUTOLOGIN
+          value: "False"
+        - name: OIDC_CREATE_USER
+          value: "True"
+        - name: OIDC_RP_SIGN_ALGO
+          valueFrom:
+            secretKeyRef:
+              name: oidc-client-memelord-marguskoval-owner-secrets
+              key: OIDC_ID_TOKEN_SIGNED_RESPONSE_ALG
+        - name: OIDC_RP_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: oidc-client-memelord-marguskoval-owner-secrets
+              key: OIDC_CLIENT_ID
+        - name: OIDC_RP_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: oidc-client-memelord-marguskoval-owner-secrets
+              key: OIDC_CLIENT_SECRET
+        - name: OIDC_OP_AUTHORIZATION_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              name: oidc-client-memelord-marguskoval-owner-secrets
+              key: OIDC_IDP_AUTH_URI
+        - name: OIDC_OP_TOKEN_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              name: oidc-client-memelord-marguskoval-owner-secrets
+              key: OIDC_IDP_TOKEN_URI
+        - name: OIDC_OP_USER_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              name: oidc-client-memelord-marguskoval-owner-secrets
+              key: OIDC_IDP_USERINFO_URI
+        - name: OIDC_OP_JWKS_ENDPOINT
+          value: "https://auth.ee-lte-1.codemowers.io/jwks"
+
+        # PostgreSQL configuration
+        - name: DB_ENGINE
+          value: "postgres"
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: memelord-marguskoval-database-app
+              key: username
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: memelord-marguskoval-database-app
+              key: password
+        - name: POSTGRES_DB
+          value: "app"
+        - name: POSTGRES_HOST
+          value: "memelord-marguskoval-database-rw"
+        - name: POSTGRES_PORT
+          value: "5432"
+
+        # Redis configuration
+        - name: REDIS_HOST
+          value: "memelord-marguskoval-redis"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: REDIS_DB
+          value: "0"
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: memelord-marguskoval-redis
+              key: redis-password
+
+        # S3 storage configuration
+        - name: STORAGE_BACKEND
+          value: "s3"
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: memelord-marguskoval-bucket
+              key: accessKey
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: memelord-marguskoval-bucket
+              key: secretKey
+        - name: AWS_STORAGE_BUCKET_NAME
+          value: "memelord-marguskoval"
+        - name: AWS_S3_ADDRESSING_STYLE
+          value: "path"
+        - name: AWS_DEFAULT_ACL
+          value: "private"
+        - name: AWS_QUERYSTRING_AUTH
+          value: "True"
+        - name: AWS_S3_FILE_OVERWRITE
+          value: "False"
+        - name: AWS_LOCATION
+          value: "media"
+
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+      volumes:
+      - name: logs
+        emptyDir: {}
+      - name: tmp
+        emptyDir: {}
+      - name: settings-override
+        configMap:
+          name: memelord-settings-override
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: memelord
+  namespace: memelord-margus
+spec:
+  selector:
+    app: memelord
+  ports:
+  - protocol: TCP
+    port: 8000
+    targetPort: 8000
+  type: ClusterIP

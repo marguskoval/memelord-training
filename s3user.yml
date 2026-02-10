@@ -1,0 +1,9 @@
+apiVersion: s3.onyxia.sh/v1alpha1
+kind: S3User
+metadata:
+  name: memelord-marguskoval-bucket
+spec:
+  accessKey: memelord-marguskoval-bucket # This is automatically created
+  policies:
+    - memelord-marguskoval-policy
+  s3InstanceRef: minio/default
