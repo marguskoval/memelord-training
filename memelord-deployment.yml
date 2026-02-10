@@ -169,7 +169,7 @@ spec:
         - name: AWS_S3_FILE_OVERWRITE
           value: "False"
         - name: AWS_LOCATION
-          value: "media"
+          value: ""
         - name: AWS_S3_ENDPOINT_URL
           value: "http://minio.minio.svc.cluster.local:9000"
         resources:
