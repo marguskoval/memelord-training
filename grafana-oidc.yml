@@ -18,4 +18,5 @@ spec:
   availableScopes:
     - openid
     - profile
+    - groups
   pkce: false
