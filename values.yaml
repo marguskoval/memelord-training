@@ -1,7 +1,7 @@
 # Application configuration
 app:
   name: memelord
-  namespace: memelord-margus
+  namespace: memelord-margus-helm
   replicas: 1
   image:
     repository: ghcr.io/l4rm4nd/memelord
@@ -94,7 +94,7 @@ redis:
 s3:
   enabled: true
   bucket:
-    name: memelord-marguskoval
+    name: memelord-marguskoval-v2
     quota: 100000000
   user:
     name: memelord-marguskoval-bucket
