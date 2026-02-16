@@ -1,0 +1,57 @@
+{{- if .Values.s3.enabled }}
+---
+apiVersion: s3.onyxia.sh/v1alpha1
+kind: Bucket
+metadata:
+  name: {{ .Values.s3.bucket.name }}
+  namespace: {{ .Values.app.namespace }}
+  labels:
+    {{- include "memelord.labels" . | nindent 4 }}
+spec:
+  name: {{ .Values.s3.bucket.name }}
+  s3InstanceRef: {{ .Values.s3.instance.ref }}
+  quota:
+    default: {{ .Values.s3.bucket.quota }}
+---
+apiVersion: s3.onyxia.sh/v1alpha1
+kind: S3User
+metadata:
+  name: {{ .Values.s3.user.name }}
+  namespace: {{ .Values.app.namespace }}
+  labels:
+    {{- include "memelord.labels" . | nindent 4 }}
+spec:
+  accessKey: {{ .Values.s3.user.name }}
+  policies:
+    - {{ .Values.s3.policy.name }}
+  s3InstanceRef: {{ .Values.s3.instance.ref }}
+---
+apiVersion: s3.onyxia.sh/v1alpha1
+kind: Policy
+metadata:
+  name: {{ .Values.s3.policy.name }}
+  namespace: {{ .Values.app.namespace }}
+  labels:
+    {{- include "memelord.labels" . | nindent 4 }}
+spec:
+  name: {{ .Values.s3.policy.name }}
+  s3InstanceRef: {{ .Values.s3.instance.ref }}
+  policyContent: >-
+    {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": [
+            "s3:ListBucket",
+            "s3:GetObject",
+            "s3:PutObject"
+          ],
+          "Resource": [
+            "arn:aws:s3:::{{ .Values.s3.bucket.name }}",
+            "arn:aws:s3:::{{ .Values.s3.bucket.name }}/*"
+          ]
+        }
+      ]
+    }
+{{- end }}

@@ -1,0 +1,183 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.app.name }}
+  namespace: {{ .Values.app.namespace }}
+  labels:
+    {{- include "memelord.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.app.replicas }}
+  selector:
+    matchLabels:
+      {{- include "memelord.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "memelord.selectorLabels" . | nindent 8 }}
+    spec:
+      securityContext:
+        runAsUser: {{ .Values.securityContext.runAsUser }}
+        runAsGroup: {{ .Values.securityContext.runAsGroup }}
+        fsGroup: {{ .Values.securityContext.fsGroup }}
+      containers:
+      - name: {{ .Values.app.name }}
+        image: "{{ .Values.app.image.repository }}:{{ .Values.app.image.tag }}"
+        imagePullPolicy: {{ .Values.app.image.pullPolicy }}
+        securityContext:
+          readOnlyRootFilesystem: {{ .Values.securityContext.readOnlyRootFilesystem }}
+          allowPrivilegeEscalation: {{ .Values.securityContext.allowPrivilegeEscalation }}
+          runAsNonRoot: {{ .Values.securityContext.runAsNonRoot }}
+        volumeMounts:
+        - name: logs
+          mountPath: /opt/app/logs
+        - name: tmp
+          mountPath: /tmp
+        {{- if .Values.settingsOverride.enabled }}
+        - name: settings-override
+          mountPath: /opt/app/myproject/settings_override.py
+          subPath: settings_override.py
+        {{- end }}
+        ports:
+        - containerPort: {{ .Values.service.targetPort }}
+        env:
+        - name: DJANGO_SETTINGS_MODULE
+          value: "myproject.settings_override"
+        - name: DEBUG
+          value: {{ .Values.django.debug | quote }}
+        - name: DJANGO_LOG_LEVEL
+          value: {{ .Values.django.logLevel | quote }}
+        - name: DOMAIN
+          value: {{ .Values.django.domain | quote }}
+        - name: SECURE_COOKIES
+          value: {{ .Values.django.secureCookies | quote }}
+        - name: SESSION_COOKIE_AGE
+          value: {{ .Values.django.sessionCookieAge | quote }}
+        - name: SESSION_EXPIRE_AT_BROWSER_CLOSE
+          value: {{ .Values.django.sessionExpireAtBrowserClose | quote }}
+        - name: TZ
+          value: {{ .Values.django.timezone | quote }}
+        - name: ENABLE_PUBLIC_FEED
+          value: {{ .Values.django.enablePublicFeed | quote }}
+        - name: MAX_UPLOAD_SIZE_MB
+          value: {{ .Values.django.maxUploadSizeMb | quote }}
+        
+        # OIDC Configuration
+        {{- if .Values.oidc.enabled }}
+        - name: OIDC_ENABLED
+          value: {{ .Values.oidc.enabled | quote }}
+        - name: OIDC_AUTOLOGIN
+          value: {{ .Values.oidc.autologin | quote }}
+        - name: OIDC_CREATE_USER
+          value: {{ .Values.oidc.createUser | quote }}
+        - name: OIDC_RP_SIGN_ALGO
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.oidc.secretName }}
+              key: OIDC_ID_TOKEN_SIGNED_RESPONSE_ALG
+        - name: OIDC_RP_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.oidc.secretName }}
+              key: OIDC_CLIENT_ID
+        - name: OIDC_RP_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.oidc.secretName }}
+              key: OIDC_CLIENT_SECRET
+        - name: OIDC_OP_AUTHORIZATION_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.oidc.secretName }}
+              key: OIDC_IDP_AUTH_URI
+        - name: OIDC_OP_TOKEN_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.oidc.secretName }}
+              key: OIDC_IDP_TOKEN_URI
+        - name: OIDC_OP_USER_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.oidc.secretName }}
+              key: OIDC_IDP_USERINFO_URI
+        - name: OIDC_OP_JWKS_ENDPOINT
+          value: {{ .Values.oidc.jwksEndpoint | quote }}
+        {{- end }}
+
+        # PostgreSQL configuration
+        {{- if .Values.postgresql.enabled }}
+        - name: DB_ENGINE
+          value: "postgres"
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.postgresql.database.name }}-database-app
+              key: username
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.postgresql.database.name }}-database-app
+              key: password
+        - name: POSTGRES_DB
+          value: {{ .Values.postgresql.connection.database | quote }}
+        - name: POSTGRES_HOST
+          value: {{ .Values.postgresql.connection.host | quote }}
+        - name: POSTGRES_PORT
+          value: {{ .Values.postgresql.connection.port | quote }}
+        {{- end }}
+
+        # Redis configuration
+        {{- if .Values.redis.enabled }}
+        - name: REDIS_HOST
+          value: {{ .Values.redis.host | quote }}
+        - name: REDIS_PORT
+          value: {{ .Values.redis.port | quote }}
+        - name: REDIS_DB
+          value: {{ .Values.redis.database | quote }}
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.redis.secretName }}
+              key: redis-password
+        {{- end }}
+
+        # S3 storage configuration
+        {{- if .Values.s3.enabled }}
+        - name: STORAGE_BACKEND
+          value: "s3"
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.s3.bucket.name }}-bucket
+              key: accessKey
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.s3.bucket.name }}-bucket
+              key: secretKey
+        - name: AWS_STORAGE_BUCKET_NAME
+          value: {{ .Values.s3.bucket.name | quote }}
+        - name: AWS_S3_ADDRESSING_STYLE
+          value: {{ .Values.s3.addressingStyle | quote }}
+        - name: AWS_DEFAULT_ACL
+          value: {{ .Values.s3.defaultAcl | quote }}
+        - name: AWS_QUERYSTRING_AUTH
+          value: {{ .Values.s3.querystringAuth | quote }}
+        - name: AWS_S3_FILE_OVERWRITE
+          value: {{ .Values.s3.fileOverwrite | quote }}
+        - name: AWS_LOCATION
+          value: {{ .Values.s3.location | quote }}
+        - name: AWS_S3_ENDPOINT_URL
+          value: {{ .Values.s3.endpoint | quote }}
+        {{- end }}
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+      volumes:
+      - name: logs
+        emptyDir: {}
+      - name: tmp
+        emptyDir: {}
+      {{- if .Values.settingsOverride.enabled }}
+      - name: settings-override
+        configMap:
+          name: {{ .Values.app.name }}-settings-override
+      {{- end }}

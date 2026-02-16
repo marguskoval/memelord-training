@@ -1,0 +1,12 @@
+{{- if .Values.settingsOverride.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.app.name }}-settings-override
+  namespace: {{ .Values.app.namespace }}
+  labels:
+    {{- include "memelord.labels" . | nindent 4 }}
+data:
+  settings_override.py: |
+{{ .Values.settingsOverride.content | indent 4 }}
+{{- end }}

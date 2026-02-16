@@ -1,0 +1,127 @@
+# Application configuration
+app:
+  name: memelord
+  namespace: memelord-margus
+  replicas: 1
+  image:
+    repository: ghcr.io/l4rm4nd/memelord
+    tag: latest
+    pullPolicy: IfNotPresent
+
+# Security context
+securityContext:
+  runAsUser: 33
+  runAsGroup: 33
+  fsGroup: 33
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  runAsNonRoot: true
+
+# Resource limits
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# Django configuration
+django:
+  debug: false
+  logLevel: INFO
+  domain: "localhost,memelord-marguskoval.k8s.chil.ee"
+  secureCookies: true
+  sessionCookieAge: "30"
+  sessionExpireAtBrowserClose: false
+  timezone: "Europe/Berlin"
+  enablePublicFeed: false
+  maxUploadSizeMb: "10"
+
+# OIDC configuration
+oidc:
+  enabled: true
+  autologin: false
+  createUser: true
+  jwksEndpoint: "https://auth.ee-lte-1.codemowers.io/jwks"
+  secretName: oidc-client-memelord-marguskoval-owner-secrets
+
+# PostgreSQL configuration
+postgresql:
+  enabled: true
+  cluster:
+    name: memelord-marguskoval-database
+    instances: 1
+    imageName: ghcr.io/cloudnative-pg/postgresql:17
+    storage:
+      size: 1Gi
+      storageClass: postgres
+    affinity:
+      podAntiAffinityType: required
+      nodeSelector:
+        codemowers.io/lvm-ubuntu-vg: enterprise-ssd
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "1Gi"
+      limits:
+        cpu: "1"
+        memory: "4Gi"
+    parameters:
+      max_connections: "300"
+      shared_buffers: "512MB"
+      effective_cache_size: "2GB"
+  database:
+    name: memelord-marguskoval
+    owner: memelord-marguskoval
+  user:
+    name: memelord-marguskoval
+    passwordLength: "32"
+  connection:
+    host: memelord-marguskoval-database-rw
+    port: "5432"
+    database: app
+
+# Redis configuration
+redis:
+  enabled: true
+  host: memelord-marguskoval-redis
+  port: "6379"
+  database: "0"
+  secretName: memelord-marguskoval-redis
+
+# S3/MinIO configuration
+s3:
+  enabled: true
+  bucket:
+    name: memelord-marguskoval
+    quota: 100000000
+  user:
+    name: memelord-marguskoval-bucket
+  policy:
+    name: memelord-marguskoval-policy
+  instance:
+    ref: minio/default
+  endpoint: "http://minio.minio.svc.cluster.local:9000"
+  addressingStyle: path
+  defaultAcl: private
+  querystringAuth: true
+  fileOverwrite: false
+  location: ""
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8000
+  targetPort: 8000
+
+# ConfigMap settings override
+settingsOverride:
+  enabled: true
+  content: |
+    # Import base settings
+    from myproject.settings import *
+    
+    # Override S3 Configuration for MinIO path-style addressing
+    AWS_S3_ADDRESSING_STYLE = 'path'
+    AWS_S3_SIGNATURE_VERSION = 's3v4'

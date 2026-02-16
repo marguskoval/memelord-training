@@ -1,0 +1,96 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: grafana
+  labels:
+    app: grafana
+spec:
+  serviceName: grafana
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+        - name: grafana
+          image: grafana/grafana:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: GF_SERVER_ROOT_URL
+              value: "https://grafana-margus.ee-lte-1.codemowers.io"
+            - name: GF_DATABASE_TYPE
+              value: sqlite3
+            - name: GF_DATABASE_PATH
+              value: /var/lib/grafana/grafana.db
+            - name: GF_AUTH_GENERIC_OAUTH_ENABLED
+              value: "true"
+            - name: GF_AUTH_GENERIC_OAUTH_NAME
+              value: "OIDC"
+            - name: GF_AUTH_GENERIC_OAUTH_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: oidc-client-grafana-margus-owner-secrets
+                  key: OIDC_CLIENT_ID
+            - name: GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: oidc-client-grafana-margus-owner-secrets
+                  key: OIDC_CLIENT_SECRET
+            - name: GF_AUTH_GENERIC_OAUTH_SCOPES
+              value: "openid profile"
+            - name: GF_AUTH_GENERIC_OAUTH_AUTH_URL
+              value: "https://auth.ee-lte-1.codemowers.io/auth"
+            - name: GF_AUTH_GENERIC_OAUTH_TOKEN_URL
+              value: "https://auth.ee-lte-1.codemowers.io/token"
+            - name: GF_AUTH_GENERIC_OAUTH_API_URL
+              value: "https://auth.ee-lte-1.codemowers.io/me"
+            - name: GF_AUTH_GENERIC_OAUTH_ALLOW_SIGN_UP
+              value: "true"
+          volumeMounts:
+            - name: grafana-storage
+              mountPath: /var/lib/grafana
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+  volumeClaimTemplates:
+    - metadata:
+        name: grafana-storage
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: sqlite
+        resources:
+          requests:
+            storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  labels:
+    app: grafana
+spec:
+  type: ClusterIP
+  selector:
+    app: grafana
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000

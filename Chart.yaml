@@ -1,0 +1,6 @@
+apiVersion: v2
+name: memelord
+description: A Helm chart for Memelord application with PostgreSQL and S3 storage
+type: application
+version: 1.0.0
+appVersion: "latest"
